@@ -301,3 +301,87 @@
     (ok true)
   )
 )
+
+;; CONTRACT ADMINISTRATION
+
+;; Emergency Pause Function
+(define-public (pause-contract)
+  (begin
+    (asserts! (is-eq tx-sender CONTRACT-OWNER) ERR-NOT-AUTHORIZED)
+    (var-set contract-paused true)
+    (ok true)
+  )
+)
+
+;; Resume Contract Operations
+(define-public (resume-contract)
+  (begin
+    (asserts! (is-eq tx-sender CONTRACT-OWNER) ERR-NOT-AUTHORIZED)
+    (var-set contract-paused false)
+    (ok true)
+  )
+)
+
+;; READ-ONLY QUERY FUNCTIONS
+
+(define-read-only (get-contract-owner)
+  (ok CONTRACT-OWNER)
+)
+
+(define-read-only (get-stx-pool)
+  (ok (var-get stx-pool))
+)
+
+(define-read-only (get-proposal-count)
+  (ok (var-get proposal-count))
+)
+
+(define-read-only (get-user-position (user principal))
+  (ok (map-get? UserPositions user))
+)
+
+(define-read-only (get-staking-position (user principal))
+  (ok (map-get? StakingPositions user))
+)
+
+(define-read-only (get-proposal-details (proposal-id uint))
+  (ok (map-get? Proposals { proposal-id: proposal-id }))
+)
+
+(define-read-only (is-contract-paused)
+  (ok (var-get contract-paused))
+)
+
+;; PRIVATE UTILITY FUNCTIONS
+
+;; Tier Level Calculation Logic
+(define-private (get-tier-info (stake-amount uint))
+  (if (>= stake-amount u10000000) ;; Gold Tier: 10+ STX
+    {
+      tier-level: u3,
+      reward-multiplier: u200,
+    }
+    (if (>= stake-amount u5000000) ;; Silver Tier: 5-9.99 STX
+      {
+        tier-level: u2,
+        reward-multiplier: u150,
+      }
+      {
+        ;; Bronze Tier: 1-4.99 STX
+        tier-level: u1,
+        reward-multiplier: u100,
+      }
+    )
+  )
+)
+
+;; Time-Lock Bonus Multiplier Calculation
+(define-private (calculate-lock-multiplier (lock-period uint))
+  (if (>= lock-period u8640) ;; 60+ day lock period
+    u150 ;; 1.5x multiplier bonus
+    (if (>= lock-period u4320) ;; 30-59 day lock period
+      u125 ;; 1.25x multiplier bonus
+      u100 ;; No lock bonus (1x)
+    )
+  )
+)
